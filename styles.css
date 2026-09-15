@@ -1,0 +1,194 @@
+/* 馥森阪治 Trio 聚餐點餐與上餐追蹤系統 - 樣式表 */
+
+/* Google Fonts Smooth Rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c29b72;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8c6747;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Active navigation tab */
+.nav-tab.active {
+  color: #dfd5c4;
+  border-bottom-color: #dfd5c4;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+}
+
+/* Big Font Mode for Seniors / Easy Field Readability */
+body.big-font-mode {
+  font-size: 1.15rem;
+}
+body.big-font-mode h1 {
+  font-size: 1.6rem !important;
+}
+body.big-font-mode h2 {
+  font-size: 1.7rem !important;
+}
+body.big-font-mode h3 {
+  font-size: 1.4rem !important;
+}
+body.big-font-mode h4 {
+  font-size: 1.3rem !important;
+}
+body.big-font-mode .member-chip {
+  padding-top: 0.9rem !important;
+  padding-bottom: 0.9rem !important;
+  font-size: 1.1rem !important;
+}
+body.big-font-mode .meal-btn {
+  padding: 1.1rem !important;
+  font-size: 1.15rem !important;
+}
+body.big-font-mode .serve-action-btn {
+  padding-top: 0.85rem !important;
+  padding-bottom: 0.85rem !important;
+  font-size: 1.1rem !important;
+}
+body.big-font-mode .note-badge {
+  font-size: 0.95rem !important;
+  padding: 0.35rem 0.6rem !important;
+}
+
+/* Member Selector Card Styling (Vertical List Row) */
+.member-chip {
+  transition: all 0.18s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+.member-chip:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(27, 56, 43, 0.08);
+}
+.member-chip.selected {
+  border-color: #8c6747 !important;
+  background-color: #1b382b !important;
+  color: #f9f6f0 !important;
+  box-shadow: 0 4px 14px rgba(27, 56, 43, 0.25);
+}
+.member-chip.selected .role-badge {
+  background-color: #c29b72 !important;
+  color: #13231b !important;
+}
+.member-chip.has-order {
+  border-left-width: 5px;
+  border-left-color: #2d8659;
+}
+
+/* Meal Option Radio / Cards */
+.meal-option-card {
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.meal-option-card:hover {
+  border-color: #8c6747;
+}
+.meal-option-card.selected {
+  border-color: #1b382b;
+  background: #fdfbf7;
+  box-shadow: 0 0 0 2px #1b382b;
+}
+
+/* Special Diet Quick Tag Pills */
+.diet-quick-tag {
+  transition: all 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.diet-quick-tag:hover {
+  background-color: #fce7e7;
+  border-color: #f87171;
+}
+.diet-quick-tag.active {
+  background-color: #b93838;
+  color: white;
+  border-color: #9c2828;
+}
+
+/* Kitchen Order Card Animation */
+.kitchen-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.kitchen-card.all-served {
+  background-color: #f4fbf7;
+  border-color: #a7f3d0;
+  opacity: 0.9;
+}
+.kitchen-card.highlight-flash {
+  animation: pulseHighlight 1s ease 2;
+}
+
+@keyframes pulseHighlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(45, 134, 89, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(45, 134, 89, 0.4);
+  }
+}
+
+/* Meal Row in Kitchen Card */
+.kitchen-meal-row {
+  transition: all 0.2s ease;
+}
+.kitchen-meal-row.is-served {
+  background-color: rgba(240, 253, 244, 0.85);
+  border-color: #bbf7d0;
+}
+
+/* Toast Animations */
+.toast-item {
+  animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Print Stylesheet */
+@media print {
+  header, nav, #btnSoundToggle, #btnFontSizeToggle, #btnOpenDual, #submitBarSection, footer, .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+  #printContainer {
+    display: block !important;
+  }
+  .tab-content {
+    display: none !important;
+  }
+}
