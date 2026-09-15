@@ -45,6 +45,9 @@
     }
   </script>
   
+  <!-- MQTT WebSocket for Zero-Config Realtime Cloud Sync across all devices -->
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.5/dist/mqtt.min.js"></script>
+
   <!-- Firebase SDK (Compat version for reliable in-browser usage without bundlers) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -72,10 +75,10 @@
 
       <!-- Live Sync & Quick Actions -->
       <div class="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm">
-        <!-- Sync Indicator -->
-        <div id="syncBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/30 border border-white/20 text-green-300">
-          <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
-          <span id="syncText">本地即時同步中</span>
+        <!-- Sync Indicator (Clickable to open sync details & force sync) -->
+        <div id="syncBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-400/50 text-emerald-300 cursor-pointer hover:bg-emerald-900/90 transition shadow-2xs select-none" title="點擊檢視雲端即時同步狀態或手動強制同步">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" id="syncDot"></span>
+          <span id="syncText">雲端連線中...</span>
         </div>
 
         <!-- Sound Toggle -->
@@ -505,46 +508,93 @@
     <!-- ================= TAB 4: 系統設定與 Firebase 雲端同步 ================= -->
     <section id="settingsTab" class="tab-content hidden space-y-6">
       
-      <!-- Firebase Cloud Sync Configuration -->
+      <!-- Real-Time Cloud Sync (MQTT WebSocket 全自動跨裝置同步) -->
       <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-trio-sand/50">
-        <div class="flex items-center gap-2 pb-3 border-b border-gray-100">
-          <i class="fa-solid fa-cloud-arrow-up text-trio-wood text-xl"></i>
-          <h2 class="text-xl font-bold font-serif text-trio-forest">前後台跨裝置「即時雲端同步」設定 (Firebase)</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-tower-broadcast text-emerald-600 text-xl"></i>
+            <div>
+              <h2 class="text-xl font-bold font-serif text-trio-forest">前後台跨裝置「即時雲端同步」系統 (全自動・零設定)</h2>
+              <p class="text-xs text-gray-500 mt-0.5">採用高速 MQTT WebSocket 雲端通訊協定，所有外場手機與內場廚房平板秒級連動</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="settingsMqttBadge" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="settingsMqttStatusText">雲端即時連線中</span>
+            </span>
+          </div>
         </div>
-        <p class="text-gray-600 text-sm mt-2">
-          系統預設啟用 <strong class="text-trio-forest">本地廣播同步 (BroadcastChannel)</strong>，同台電腦或同手機多開分頁即可秒級連動。<br>
-          聚餐現場如需讓「外場手機」與「內場主廚平板」完全跨裝置即時同步，可於下方填入免費的 <strong>Firebase Config</strong>：
-        </p>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-bold text-gray-700 mb-1">Firebase 連線代碼 (JSON 或 參數設定)</label>
-              <textarea id="firebaseConfigInput" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}' 
-                        class="w-full p-3 font-mono text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-trio-forest"></textarea>
+          <!-- Left: Sync controls and status info -->
+          <div class="p-4 rounded-xl bg-emerald-50/40 border border-emerald-200/80 space-y-3">
+            <div class="text-xs space-y-2 text-gray-700">
+              <div class="flex items-center justify-between border-b border-emerald-200/50 pb-2">
+                <span class="font-bold text-emerald-950">同步專屬頻道 (Topic)：</span>
+                <code id="settingsTopicDisplay" class="bg-white px-2 py-0.5 rounded border border-emerald-300 font-mono text-emerald-900 font-bold">fruit8428_rotary_songqing_fussen_trio_v1</code>
+              </div>
+              <div class="flex items-center justify-between border-b border-emerald-200/50 pb-2">
+                <span class="font-bold text-emerald-950">最後雲端同步時間：</span>
+                <span id="settingsLastSyncTime" class="font-bold text-gray-900">連線初始化中...</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-emerald-200/50 pb-2">
+                <span class="font-bold text-emerald-950">本機客戶端 ID：</span>
+                <span id="settingsClientId" class="font-mono text-gray-500 text-[11px]">--</span>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <button id="btnSaveFirebaseConfig" class="px-4 py-2 bg-trio-forest hover:bg-trio-forestLight text-white rounded-xl text-xs font-bold transition">
-                儲存並連線 Firebase
+
+            <!-- Action Buttons -->
+            <div class="pt-2 flex flex-wrap gap-2">
+              <button id="btnSettingsForcePush" type="button" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>立即強制同步至雲端</span>
               </button>
-              <button id="btnClearFirebaseConfig" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-medium transition">
-                清除配置 (還原純本地)
+              <button id="btnSettingsForcePull" type="button" class="px-4 py-2 bg-white hover:bg-gray-100 active:scale-95 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+                <span>從雲端重新下載最新點餐</span>
               </button>
             </div>
           </div>
 
-          <div class="bg-trio-cream p-4 rounded-xl border border-trio-sand text-xs space-y-2 text-gray-700">
-            <div class="font-bold text-trio-forest text-sm flex items-center gap-1">
-              <i class="fa-solid fa-lightbulb text-amber-600"></i>
-              3分鐘建立免費 Firebase 雲端教學：
+          <!-- Right: Sharing link and operation notes -->
+          <div class="p-4 rounded-xl bg-amber-50/40 border border-amber-200/80 space-y-3">
+            <div class="font-bold text-amber-950 text-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-mobile-screen-button text-amber-700"></i>
+              <span>跨裝置使用說明：</span>
             </div>
-            <ol class="list-decimal list-inside space-y-1 text-gray-600">
-              <li>前往 <a href="https://console.firebase.google.com" target="_blank" class="text-blue-600 underline">Firebase Console</a> 點「建立專案」。</li>
-              <li>進入「Build」&gt;「Firestore Database」點「建立資料庫」（選擇測試模式 test mode）。</li>
-              <li>點專案設定（齒輪）&gt;「一般」&gt; 點選「網頁應用程式 (&lt;/&gt;)」複製 Firebase SDK 物件。</li>
-              <li>將該段物件貼上左側並儲存，外場與廚房即可完全即時同步！</li>
-            </ol>
+            <p class="text-xs text-gray-600 leading-relaxed">
+              任何人在手機或電腦瀏覽器打開本系統網址，系統便會自動加入同一雲端頻道。無論是外場為社友點餐、或是廚房平板劃記出餐，皆會在 0.3 秒內於所有畫面同步更新！
+            </p>
+            <div class="pt-1 flex items-center gap-2">
+              <button id="btnCopyShareUrlSettings" type="button" class="px-3.5 py-2 bg-trio-wood hover:bg-trio-woodLight active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+                <i class="fa-solid fa-copy"></i>
+                <span>複製線上點餐網址傳送至 LINE</span>
+              </button>
+            </div>
           </div>
+        </div>
+
+        <!-- Optional Accordion: Advanced Firebase Config -->
+        <div class="mt-4 pt-4 border-t border-gray-100">
+          <details class="text-xs group">
+            <summary class="font-bold text-gray-500 hover:text-gray-700 cursor-pointer list-none flex items-center gap-1">
+              <i class="fa-solid fa-chevron-right text-[10px] group-open:rotate-90 transition-transform"></i>
+              <span>進階自訂：使用自己的私有 Google Firebase Firestore（選填備援）</span>
+            </summary>
+            <div class="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+              <textarea id="firebaseConfigInput" rows="4" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}' 
+                        class="w-full p-2.5 font-mono text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-trio-forest"></textarea>
+              <div class="flex items-center gap-2">
+                <button id="btnSaveFirebaseConfig" class="px-3.5 py-1.5 bg-trio-forest hover:bg-trio-forestLight text-white rounded-lg text-xs font-bold transition">
+                  儲存 Firebase
+                </button>
+                <button id="btnClearFirebaseConfig" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-medium transition">
+                  清除
+                </button>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -717,6 +767,60 @@
       <div class="flex justify-end gap-2 pt-2 border-t">
         <button class="close-modal-btn px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-medium">取消</button>
         <button id="btnConfirmGuestModal" class="px-5 py-2 bg-trio-forest hover:bg-trio-forestLight text-white rounded-xl text-xs font-bold">確認變更人數</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: 雲端同步狀態與手動同步彈窗 -->
+  <div id="syncStatusModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-5 sm:p-6 border border-gray-200 space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-tower-broadcast text-emerald-600 text-lg"></i>
+          <h3 class="text-base sm:text-lg font-bold text-trio-forest font-serif">雲端即時跨裝置同步</h3>
+        </div>
+        <button class="close-modal-btn text-gray-400 hover:text-gray-600 text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs sm:text-sm">
+        <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-700">連線狀態：</span>
+            <span id="modalSyncStatusBadge" class="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">🟢 雲端同步連線中</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-700">專屬頻道：</span>
+            <code class="font-mono text-xs bg-white px-2 py-0.5 rounded border border-emerald-300 text-emerald-950 font-bold">fruit8428_rotary_songqing_fussen_trio_v1</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-700">最後同步：</span>
+            <span id="modalSyncLastTime" class="font-bold text-gray-900">連線中...</span>
+          </div>
+        </div>
+
+        <p class="text-xs text-gray-500 leading-relaxed">
+          💡 本系統已建立全自動跨裝置即時同步，外場手機代點與內場平板上餐會即時連動。若有需要亦可使用下方按鈕手動處理：
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <button id="btnModalForcePush" type="button" class="w-full py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>強制同步至雲端</span>
+          </button>
+          <button id="btnModalForcePull" type="button" class="w-full py-2.5 px-3 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+            <span>從雲端重新下載</span>
+          </button>
+        </div>
+
+        <button id="btnModalCopyShare" type="button" class="w-full py-2.5 px-3 bg-trio-wood hover:bg-trio-woodLight active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
+          <i class="fa-solid fa-share-nodes"></i>
+          <span>複製分享網址 (傳送給其他幹部/廚房)</span>
+        </button>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t">
+        <button class="close-modal-btn px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-medium cursor-pointer">關閉</button>
       </div>
     </div>
   </div>

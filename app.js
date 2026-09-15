@@ -64,10 +64,19 @@
     modalGuestTargetMemberId: null,
     modalGuestCurrentCount: 1,
     
-    // 同步管道
+    // 同步管道 (本地廣播與自訂 Firebase)
     broadcastChannel: null,
     firestoreDb: null,
-    isFirebaseConnected: false
+    isFirebaseConnected: false,
+
+    // MQTT 跨裝置雲端即時同步 (零設定自動連線)
+    mqttClient: null,
+    mqttClientId: 'trio_' + Math.random().toString(36).substring(2, 10),
+    mqttTopic: 'fruit8428_rotary_songqing_fussen_trio_v1',
+    mqttStatus: 'connecting', // 'connected' | 'syncing' | 'synced' | 'offline'
+    lastSyncTime: '',
+    lastRemoteTs: 0,
+    isApplyingRemote: false
   };
 
   // ================= 3. 提示音合成 (Web Audio API - 跨平台無外部載入失敗問題) =================
@@ -172,27 +181,40 @@
 
     saveMembers(sync = true) {
       localStorage.setItem('trio_members', JSON.stringify(State.members));
-      if (sync) Sync.broadcast({ type: 'MEMBERS_UPDATED', payload: State.members });
+      if (sync) {
+        Sync.broadcast({ type: 'MEMBERS_UPDATED', payload: State.members });
+        Sync.pushToCloud();
+      }
     },
 
     saveOrders(sync = true) {
       localStorage.setItem('trio_orders', JSON.stringify(State.orders));
       if (sync) {
         Sync.broadcast({ type: 'ORDERS_UPDATED', payload: State.orders });
-        Sync.pushToFirestore();
+        Sync.pushToCloud();
       }
     },
 
-    saveMenu() {
+    saveMenu(sync = true) {
       localStorage.setItem('trio_menu', JSON.stringify(State.menu));
-      Sync.broadcast({ type: 'MENU_UPDATED', payload: State.menu });
+      if (sync) {
+        Sync.broadcast({ type: 'MENU_UPDATED', payload: State.menu });
+        Sync.pushToCloud();
+      }
     }
   };
 
-  // ================= 5. 即時同步引擎 (BroadcastChannel + Firebase Firestore) =================
+  // ================= 5. 即時同步引擎 (MQTT WebSocket 跨裝置雲端同步 + 本地廣播 + Firebase) =================
   const Sync = {
+    brokers: [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ],
+    currentBrokerIdx: 0,
+    hasReceivedRetained: false,
+
     init() {
-      // 1. 本地跨分頁 BroadcastChannel 初始化
+      // 1. 本地跨分頁 BroadcastChannel 初始化 (同台設備分頁 0 毫秒極速同步)
       if ('BroadcastChannel' in window) {
         try {
           State.broadcastChannel = new BroadcastChannel('trio_order_sync_channel');
@@ -215,11 +237,175 @@
         }
       });
 
-      // 2. Firebase 初始化（若有設定）
+      // 2. MQTT 跨裝置雲端全自動即時連線 (免設定、跨手機與電腦連動)
+      this.initMqtt();
+
+      // 3. Firebase 初始化（若使用者有另外填寫自訂配置）
       if (State.firebaseConfig) {
         this.initFirebase(State.firebaseConfig);
-      } else {
-        this.updateSyncBadge(false);
+      }
+    },
+
+    initMqtt() {
+      if (typeof window.mqtt === 'undefined') {
+        console.warn('MQTT library not loaded, fallback to local sync');
+        State.mqttStatus = 'offline';
+        this.updateSyncBadge();
+        return;
+      }
+
+      const brokerUrl = this.brokers[this.currentBrokerIdx];
+      State.mqttStatus = 'connecting';
+      this.updateSyncBadge();
+
+      try {
+        const client = window.mqtt.connect(brokerUrl, {
+          clientId: State.mqttClientId,
+          clean: true,
+          connectTimeout: 8000,
+          reconnectPeriod: 3000,
+          keepalive: 30
+        });
+
+        State.mqttClient = client;
+
+        client.on('connect', () => {
+          State.mqttStatus = 'connected';
+          this.updateSyncBadge();
+          client.subscribe(State.mqttTopic, { qos: 1 }, (err) => {
+            if (!err) {
+              console.log('✅ 雲端即時同步頻道訂閱成功:', State.mqttTopic);
+            }
+          });
+
+          // 首次連線 2.5 秒內若未收到雲端留存紀錄 (全新頻道)，且本機已有已點餐資料，自動發布至雲端初始化
+          setTimeout(() => {
+            if (!this.hasReceivedRetained && Object.keys(State.orders).length > 0 && client.connected) {
+              this.pushToCloud();
+            }
+          }, 2500);
+        });
+
+        client.on('reconnect', () => {
+          State.mqttStatus = 'connecting';
+          this.updateSyncBadge();
+        });
+
+        client.on('offline', () => {
+          State.mqttStatus = 'offline';
+          this.updateSyncBadge();
+        });
+
+        client.on('error', (err) => {
+          console.warn(`MQTT broker [${brokerUrl}] error:`, err);
+          if (this.currentBrokerIdx < this.brokers.length - 1) {
+            this.currentBrokerIdx++;
+            try { client.end(true); } catch(e) {}
+            setTimeout(() => this.initMqtt(), 1000);
+          }
+        });
+
+        client.on('message', (topic, message) => {
+          this.hasReceivedRetained = true;
+          try {
+            const payload = JSON.parse(message.toString());
+            if (!payload || typeof payload !== 'object') return;
+            // 忽略本機自己發出的廣播
+            if (payload.senderId === State.mqttClientId) return;
+            // 忽略較舊的時間戳資料，防止覆寫最新操作
+            if (payload.timestamp && payload.timestamp <= State.lastRemoteTs) return;
+            State.lastRemoteTs = payload.timestamp || Date.now();
+
+            State.isApplyingRemote = true;
+
+            // 1. 同步點餐資料
+            if (payload.orders && typeof payload.orders === 'object') {
+              State.orders = payload.orders;
+              localStorage.setItem('trio_orders', JSON.stringify(State.orders));
+            }
+            // 2. 同步名冊資料
+            if (payload.members && Array.isArray(payload.members) && payload.members.length > 0) {
+              State.members = payload.members;
+              localStorage.setItem('trio_members', JSON.stringify(State.members));
+            }
+            // 3. 同步菜單資料
+            if (payload.menu && typeof payload.menu === 'object') {
+              State.menu = payload.menu;
+              localStorage.setItem('trio_menu', JSON.stringify(State.menu));
+            }
+
+            const nowStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+            State.lastSyncTime = nowStr;
+            State.mqttStatus = 'synced';
+            this.updateSyncBadge();
+
+            UI.renderAll();
+            UI.showToast(`☁️ 雲端已即時同步最新點餐/上餐狀態 (${nowStr})`, 'info');
+
+            setTimeout(() => {
+              State.isApplyingRemote = false;
+            }, 600);
+          } catch (err) {
+            console.error('MQTT message parsing error:', err);
+          }
+        });
+
+      } catch (e) {
+        console.error('MQTT connection init error:', e);
+        State.mqttStatus = 'offline';
+        this.updateSyncBadge();
+      }
+    },
+
+    pushToCloud(force = false) {
+      if (!force && State.isApplyingRemote) return;
+
+      // 1. MQTT 雲端即時發布
+      if (State.mqttClient && State.mqttClient.connected) {
+        const payload = {
+          senderId: State.mqttClientId,
+          timestamp: Date.now(),
+          orders: State.orders,
+          members: State.members,
+          menu: State.menu
+        };
+        try {
+          State.mqttClient.publish(
+            State.mqttTopic,
+            JSON.stringify(payload),
+            { retain: true, qos: 1 },
+            (err) => {
+              if (!err) {
+                State.lastSyncTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+                State.mqttStatus = 'synced';
+                this.updateSyncBadge();
+              }
+            }
+          );
+        } catch (e) {
+          console.warn('MQTT publish error:', e);
+        }
+      }
+
+      // 2. Firebase 備援發布 (若有設定)
+      this.pushToFirestore();
+    },
+
+    forcePullFromCloud() {
+      if (!State.mqttClient || !State.mqttClient.connected) {
+        UI.showToast('⚠️ 正在嘗試重新連線至雲端即時同步伺服器...', 'warning');
+        this.initMqtt();
+        return;
+      }
+      try {
+        State.lastRemoteTs = 0; // 重置本機遠端時間戳以強制接受雲端資料
+        State.mqttClient.unsubscribe(State.mqttTopic, () => {
+          State.mqttClient.subscribe(State.mqttTopic, { qos: 1 }, () => {
+            UI.showToast('🔄 已重新向雲端發送資料抓取請求，稍候即可同步完成！', 'info');
+          });
+        });
+      } catch (e) {
+        console.error('forcePullFromCloud error:', e);
       }
     },
 
@@ -238,7 +424,7 @@
       if (msg.type === 'ORDERS_UPDATED') {
         State.orders = msg.payload || {};
         UI.renderAll();
-        UI.showToast('點餐/上餐狀態已即時連動更新', 'info');
+        UI.showToast('本地分頁已即時連動更新', 'info');
       } else if (msg.type === 'MEMBERS_UPDATED') {
         State.members = msg.payload || [];
         UI.renderAll();
@@ -255,7 +441,6 @@
           return;
         }
 
-        // Check if already initialized
         let app;
         if (!firebase.apps.length) {
           app = firebase.initializeApp(config);
@@ -265,9 +450,8 @@
 
         State.firestoreDb = firebase.firestore();
         State.isFirebaseConnected = true;
-        this.updateSyncBadge(true);
+        this.updateSyncBadge();
 
-        // 即時監聽 Firestore trio_data/orders 集合或文件
         State.firestoreDb.collection('trio_sessions')
           .doc('rotary_event')
           .onSnapshot((doc) => {
@@ -281,14 +465,14 @@
             }
           }, (err) => {
             console.error('Firestore snapshot listener error:', err);
-            this.updateSyncBadge(false);
+            this.updateSyncBadge();
           });
 
         UI.showToast('已成功連線至 Firebase 雲端即時同步！', 'success');
       } catch (err) {
         console.error('Firebase init failed:', err);
         State.isFirebaseConnected = false;
-        this.updateSyncBadge(false);
+        this.updateSyncBadge();
         UI.showToast('Firebase 連線失敗，請檢查設定代碼', 'error');
       }
     },
@@ -308,17 +492,70 @@
       }
     },
 
-    updateSyncBadge(isCloud) {
+    updateSyncBadge() {
       const badge = document.getElementById('syncBadge');
       const text = document.getElementById('syncText');
-      if (!badge || !text) return;
+      const dot = document.getElementById('syncDot');
 
-      if (isCloud) {
-        badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-400/50 text-emerald-300';
-        text.innerText = '雲端即時同步中 (Firebase)';
-      } else {
-        badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/30 border border-white/20 text-green-300';
-        text.innerText = '本地即時同步中 (雙向廣播)';
+      const isOnline = State.mqttStatus === 'connected' || State.mqttStatus === 'synced' || State.isFirebaseConnected;
+      const isConnecting = State.mqttStatus === 'connecting';
+
+      if (badge && text) {
+        if (isOnline) {
+          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-400/50 text-emerald-300 cursor-pointer hover:bg-emerald-900/90 transition shadow-2xs select-none';
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block';
+          text.innerText = State.lastSyncTime ? `雲端即時同步中 (${State.lastSyncTime})` : '雲端即時同步中';
+        } else if (isConnecting) {
+          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-400/50 text-amber-300 cursor-pointer hover:bg-amber-900/90 transition shadow-2xs select-none';
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping inline-block';
+          text.innerText = '雲端連線中...';
+        } else {
+          badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 border border-white/20 text-gray-300 cursor-pointer hover:bg-white/10 transition shadow-2xs select-none';
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-gray-400 inline-block';
+          text.innerText = '本地離線模式';
+        }
+      }
+
+      // Update settings tab elements if visible
+      const settingsMqttBadge = document.getElementById('settingsMqttBadge');
+      const settingsMqttStatusText = document.getElementById('settingsMqttStatusText');
+      const settingsLastSyncTime = document.getElementById('settingsLastSyncTime');
+      const settingsClientId = document.getElementById('settingsClientId');
+      const settingsTopicDisplay = document.getElementById('settingsTopicDisplay');
+
+      if (settingsMqttBadge && settingsMqttStatusText) {
+        if (isOnline) {
+          settingsMqttBadge.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1.5 shadow-2xs';
+          settingsMqttStatusText.innerText = '🟢 雲端即時同步正常';
+        } else if (isConnecting) {
+          settingsMqttBadge.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5 shadow-2xs';
+          settingsMqttStatusText.innerText = '🟡 雲端伺服器連線中...';
+        } else {
+          settingsMqttBadge.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 flex items-center gap-1.5 shadow-2xs';
+          settingsMqttStatusText.innerText = '⚪ 離線模式 (僅本機儲存)';
+        }
+      }
+      if (settingsLastSyncTime) {
+        settingsLastSyncTime.innerText = State.lastSyncTime ? `${State.lastSyncTime} (已同步)` : '連線建立中...';
+      }
+      if (settingsClientId) {
+        settingsClientId.innerText = State.mqttClientId || '--';
+      }
+      if (settingsTopicDisplay) {
+        settingsTopicDisplay.innerText = State.mqttTopic;
+      }
+
+      // Update Modal elements
+      const modalSyncStatusBadge = document.getElementById('modalSyncStatusBadge');
+      const modalSyncLastTime = document.getElementById('modalSyncLastTime');
+      if (modalSyncStatusBadge) {
+        modalSyncStatusBadge.innerText = isOnline ? '🟢 雲端即時連線正常' : (isConnecting ? '🟡 連線嘗試中...' : '⚪ 離線模式');
+        modalSyncStatusBadge.className = isOnline 
+          ? 'font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300'
+          : 'font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300';
+      }
+      if (modalSyncLastTime) {
+        modalSyncLastTime.innerText = State.lastSyncTime || '即時連線中';
       }
     }
   };
@@ -1826,6 +2063,40 @@
         });
       }
 
+      // Real-Time Cloud Sync: Settings Force Push
+      const btnSettingsPush = document.getElementById('btnSettingsForcePush');
+      if (btnSettingsPush) {
+        btnSettingsPush.addEventListener('click', () => {
+          Sync.pushToCloud(true);
+          UI.showToast('☁️ 已將本機最新點餐資料強制發布至雲端！', 'success');
+        });
+      }
+
+      // Real-Time Cloud Sync: Settings Force Pull
+      const btnSettingsPull = document.getElementById('btnSettingsForcePull');
+      if (btnSettingsPull) {
+        btnSettingsPull.addEventListener('click', () => {
+          Sync.forcePullFromCloud();
+        });
+      }
+
+      // Real-Time Cloud Sync: Copy Share URL
+      const btnCopyShareUrlSettings = document.getElementById('btnCopyShareUrlSettings');
+      if (btnCopyShareUrlSettings) {
+        btnCopyShareUrlSettings.addEventListener('click', () => {
+          const shareUrl = window.location.href.split('#')[0];
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              UI.showToast('📋 已複製點餐系統網址！可直接貼給社友或廚房', 'success');
+            }).catch(() => {
+              prompt('請手動複製以下點餐系統網址：', shareUrl);
+            });
+          } else {
+            prompt('請手動複製以下點餐系統網址：', shareUrl);
+          }
+        });
+      }
+
       // Save Firebase Config
       const btnSaveFb = document.getElementById('btnSaveFirebaseConfig');
       if (btnSaveFb) {
@@ -1931,6 +2202,8 @@
           document.getElementById('quickGuestModal').classList.add('hidden');
           const guestModal = document.getElementById('guestCountModal');
           if (guestModal) guestModal.classList.add('hidden');
+          const syncModal = document.getElementById('syncStatusModal');
+          if (syncModal) syncModal.classList.add('hidden');
         });
       });
 
@@ -2037,6 +2310,50 @@
           }
           const guestModal = document.getElementById('guestCountModal');
           if (guestModal) guestModal.classList.add('hidden');
+        });
+      }
+
+      // Sync Badge Click -> Open Sync Modal
+      const syncBadge = document.getElementById('syncBadge');
+      if (syncBadge) {
+        syncBadge.addEventListener('click', () => {
+          Sync.updateSyncBadge();
+          const syncModal = document.getElementById('syncStatusModal');
+          if (syncModal) syncModal.classList.remove('hidden');
+        });
+      }
+
+      // Sync Modal: Force Push
+      const btnModalPush = document.getElementById('btnModalForcePush');
+      if (btnModalPush) {
+        btnModalPush.addEventListener('click', () => {
+          Sync.pushToCloud(true);
+          UI.showToast('☁️ 已將本機所有點餐資料強制同步至雲端！', 'success');
+        });
+      }
+
+      // Sync Modal: Force Pull
+      const btnModalPull = document.getElementById('btnModalForcePull');
+      if (btnModalPull) {
+        btnModalPull.addEventListener('click', () => {
+          Sync.forcePullFromCloud();
+        });
+      }
+
+      // Sync Modal: Copy Share URL
+      const btnModalCopyShare = document.getElementById('btnModalCopyShare');
+      if (btnModalCopyShare) {
+        btnModalCopyShare.addEventListener('click', () => {
+          const shareUrl = window.location.href.split('#')[0];
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              UI.showToast('📋 已複製點餐系統網址！可直接貼給社友或廚房', 'success');
+            }).catch(() => {
+              prompt('請手動複製以下點餐系統網址：', shareUrl);
+            });
+          } else {
+            prompt('請手動複製以下點餐系統網址：', shareUrl);
+          }
         });
       }
     },
