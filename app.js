@@ -1445,11 +1445,34 @@
       });
 
       // Update Top Metrics
+      const totalMembers = State.members.length;
+      const expectedTotalAttendees = State.members.reduce((sum, m) => sum + (m.totalGuests || (1 + (m.extraGuests || 0))), 0);
+      const orderedMemberIds = new Set(
+        Object.keys(State.orders).filter(id => State.orders[id] && State.orders[id].meals && State.orders[id].meals.length > 0)
+      );
+      const unorderedMembers = State.members.filter(m => !orderedMemberIds.has(m.id));
+      const unorderedGroups = unorderedMembers.length;
+      const unorderedAttendees = unorderedMembers.reduce((sum, m) => sum + (m.totalGuests || (1 + (m.extraGuests || 0))), 0);
+
       const dashTotalMeals = document.getElementById('dashTotalMeals');
       if (dashTotalMeals) dashTotalMeals.innerText = totalMeals;
 
       const dashTotalServedRatio = document.getElementById('dashTotalServedRatio');
       if (dashTotalServedRatio) dashTotalServedRatio.innerText = `已出 ${totalServed} / 剩 ${totalMeals - totalServed}`;
+
+      // 尚未點餐人數
+      const dashUnorderedGuests = document.getElementById('dashUnorderedGuests');
+      if (dashUnorderedGuests) dashUnorderedGuests.innerText = `${unorderedAttendees} 位`;
+
+      const dashUnorderedGroupBadge = document.getElementById('dashUnorderedGroupBadge');
+      if (dashUnorderedGroupBadge) dashUnorderedGroupBadge.innerText = `剩 ${unorderedGroups} 組`;
+
+      const dashUnorderedDetail = document.getElementById('dashUnorderedDetail');
+      if (dashUnorderedDetail) {
+        dashUnorderedDetail.innerText = unorderedGroups > 0
+          ? `名冊預計共 ${expectedTotalAttendees} 位`
+          : '全體社友皆已完成點餐！';
+      }
 
       // A Meal
       const dashTotalA = document.getElementById('dashTotalA');
@@ -1534,12 +1557,87 @@
         else countUnserved++;
       });
 
+      const orderedMemberIds = new Set(
+        Object.keys(State.orders).filter(id => State.orders[id] && State.orders[id].meals && State.orders[id].meals.length > 0)
+      );
+      const unorderedMembers = State.members.filter(m => !orderedMemberIds.has(m.id));
+      const countUnordered = unorderedMembers.length;
+      const countUnorderedAttendees = unorderedMembers.reduce((sum, m) => sum + (m.totalGuests || (1 + (m.extraGuests || 0))), 0);
+
       const elCountAll = document.getElementById('countAllKitchen');
       if (elCountAll) elCountAll.innerText = countAll;
       const elCountUnserved = document.getElementById('countUnservedKitchen');
       if (elCountUnserved) elCountUnserved.innerText = countUnserved;
       const elCountServed = document.getElementById('countServedKitchen');
       if (elCountServed) elCountServed.innerText = countServed;
+      const elCountUnordered = document.getElementById('countUnorderedKitchen');
+      if (elCountUnordered) elCountUnordered.innerText = countUnordered;
+      const elCountUnorderedAttendees = document.getElementById('countUnorderedAttendeesKitchen');
+      if (elCountUnorderedAttendees) elCountUnorderedAttendees.innerText = countUnorderedAttendees;
+
+      // Handle Unordered Filter View (尚未點餐之社友名單)
+      if (filter === 'unordered') {
+        const filteredUnordered = unorderedMembers.filter(m => {
+          if (!search) return true;
+          const normSearch = search.replace(/[’'`]/g, "'");
+          const normName = m.name.toLowerCase().replace(/[’'`]/g, "'");
+          const normRole = (m.role || '').toLowerCase().replace(/[’'`]/g, "'");
+          return normName.includes(normSearch) || normRole.includes(normSearch);
+        });
+
+        if (filteredUnordered.length === 0) {
+          container.innerHTML = `
+            <div class="p-8 text-center bg-emerald-50 border border-emerald-200 rounded-2xl">
+              <i class="fa-solid fa-circle-check text-emerald-600 text-3xl mb-2"></i>
+              <div class="text-base font-bold text-emerald-900">恭喜！全體名冊社友皆已完成點餐</div>
+              <div class="text-xs text-emerald-700 mt-1">目前無任何尚未點餐之社友。</div>
+            </div>
+          `;
+          if (emptyState) emptyState.classList.add('hidden');
+          return;
+        }
+
+        if (emptyState) emptyState.classList.add('hidden');
+
+        container.innerHTML = filteredUnordered.map(member => {
+          const attendeeCount = member.totalGuests || (1 + (member.extraGuests || 0));
+          return `
+            <div class="kitchen-card p-4 sm:p-5 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-lg font-bold font-serif shadow-xs">
+                  ${member.name.charAt(0)}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-lg font-bold font-serif text-amber-950">${member.name}</h3>
+                    <span class="text-xs bg-amber-100 text-amber-900 px-2 py-0.5 rounded font-medium">${member.role}</span>
+                  </div>
+                  <div class="text-xs text-amber-800 mt-0.5">
+                    預計人數：<strong class="font-bold text-amber-950">${attendeeCount} 位</strong> (${member.extraGuests > 0 ? `本人 + 寶眷${member.extraGuests}位` : '本人 1 位'}) ｜ 尚未送出點餐
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <button type="button" data-take-order-member-id="${member.id}" 
+                        class="px-4 py-2 bg-trio-forest hover:bg-trio-forestLight text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                  <span>前往代點餐 ➜</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        container.querySelectorAll('[data-take-order-member-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const mId = btn.getAttribute('data-take-order-member-id');
+            UI.switchTab('orderTab');
+            OrderManager.selectMember(mId);
+          });
+        });
+        return;
+      }
 
       const filtered = orderList.filter(order => {
         const allDone = order.meals && order.meals.every(m => m.served);
@@ -2037,14 +2135,21 @@
       const filterAll = document.getElementById('filterKitchenAll');
       const filterUnserved = document.getElementById('filterKitchenUnserved');
       const filterServed = document.getElementById('filterKitchenServed');
+      const filterUnordered = document.getElementById('filterKitchenUnordered');
+      const dashUnorderedCard = document.getElementById('dashUnorderedCard');
 
       const setKitchenFilterActive = (btn, filterValue) => {
         document.querySelectorAll('.kitchen-filter-btn').forEach(b => {
           b.classList.remove('bg-trio-forest', 'text-white', 'shadow-xs');
-          b.classList.add('bg-gray-100', 'text-gray-700');
+          if (b.id === 'filterKitchenUnserved') {
+            b.className = 'kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-rose-100 text-rose-800 hover:bg-rose-200 transition';
+          } else if (b.id === 'filterKitchenUnordered') {
+            b.className = 'kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 transition';
+          } else {
+            b.className = 'kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition';
+          }
         });
-        btn.classList.remove('bg-gray-100', 'text-gray-700');
-        btn.classList.add('bg-trio-forest', 'text-white', 'shadow-xs');
+        btn.className = 'kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-trio-forest text-white transition shadow-xs';
         State.kitchenFilter = filterValue;
         this.renderKitchenList();
       };
@@ -2052,6 +2157,14 @@
       if (filterAll) filterAll.addEventListener('click', () => setKitchenFilterActive(filterAll, 'all'));
       if (filterUnserved) filterUnserved.addEventListener('click', () => setKitchenFilterActive(filterUnserved, 'unserved'));
       if (filterServed) filterServed.addEventListener('click', () => setKitchenFilterActive(filterServed, 'served'));
+      if (filterUnordered) filterUnordered.addEventListener('click', () => setKitchenFilterActive(filterUnordered, 'unordered'));
+      if (dashUnorderedCard && filterUnordered) {
+        dashUnorderedCard.addEventListener('click', () => {
+          setKitchenFilterActive(filterUnordered, 'unordered');
+          const listEl = document.getElementById('kitchenOrderList');
+          if (listEl) listEl.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
     },
 
     bindSettingsEvents() {

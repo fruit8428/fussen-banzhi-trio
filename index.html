@@ -356,12 +356,22 @@
         </div>
 
         <!-- Dashboard Stats Cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4">
-          <!-- Total Meals -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
+          <!-- Total Meals (已點餐總份數) -->
           <div class="bg-gradient-to-br from-trio-forest to-trio-forestLight text-white p-3.5 sm:p-4 rounded-xl shadow-xs">
             <div class="text-xs text-trio-sand font-medium">總訂餐份數</div>
             <div class="text-2xl sm:text-3xl font-bold font-serif mt-1" id="dashTotalMeals">0</div>
             <div class="text-[11px] text-gray-300 mt-0.5" id="dashTotalServedRatio">已出 0 / 剩 0</div>
+          </div>
+
+          <!-- Unordered Attendees Count (尚未點餐人數) -->
+          <div id="dashUnorderedCard" class="bg-amber-50/90 border border-amber-300 hover:border-amber-400 p-3.5 sm:p-4 rounded-xl shadow-xs cursor-pointer transition" title="點擊可檢視尚未點餐之社友名單">
+            <div class="text-xs text-amber-900 font-bold flex items-center justify-between">
+              <span>尚未點餐人數</span>
+              <span class="px-1.5 py-0.5 bg-amber-200 text-amber-950 font-bold rounded text-[10px]" id="dashUnorderedGroupBadge">剩 0 組</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-bold font-serif text-amber-950 mt-1" id="dashUnorderedGuests">0 位</div>
+            <div class="text-[11px] text-amber-800 mt-0.5" id="dashUnorderedDetail">名冊預計 34 位</div>
           </div>
 
           <!-- A Meal Count -->
@@ -440,6 +450,9 @@
             </button>
             <button id="filterKitchenServed" class="kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition">
               🟢 已全數上餐 (<span id="countServedKitchen">0</span>)
+            </button>
+            <button id="filterKitchenUnordered" class="kitchen-filter-btn px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 transition">
+              ⚪ 尚未點餐 (<span id="countUnorderedKitchen">0</span>組 / <span id="countUnorderedAttendeesKitchen">0</span>位)
             </button>
           </div>
 
