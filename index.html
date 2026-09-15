@@ -267,7 +267,7 @@
             <i class="fa-solid fa-utensils text-amber-700 mt-0.5 shrink-0 text-sm"></i>
             <div>
               <span class="font-bold text-amber-900">「餐點.pdf」最新菜單提示：</span>
-              基本上只有<strong>「主餐 A (香煎鮭魚與北非小米)」</strong>及<strong>「主餐 B (雞肉塔吉與香草飯)」</strong>不同，其餘前菜小點 1、前菜小點 2、沙拉、濃湯與甜點大家享用的都一樣！
+              提供<strong>「主餐 A (香煎鮭魚與北非小米)」</strong>、<strong>「主餐 B (雞肉塔吉與香草飯)」</strong>與<strong>「主餐 C (素食奶蛋素)」</strong>三種套餐可選，前菜小點、沙拉、濃湯與甜點均由主廚精心搭配！
             </div>
           </div>
 
@@ -356,7 +356,7 @@
         </div>
 
         <!-- Dashboard Stats Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4">
           <!-- Total Meals -->
           <div class="bg-gradient-to-br from-trio-forest to-trio-forestLight text-white p-3.5 sm:p-4 rounded-xl shadow-xs">
             <div class="text-xs text-trio-sand font-medium">總訂餐份數</div>
@@ -384,8 +384,18 @@
             <div class="text-[11px] text-emerald-700 mt-0.5" id="dashBServed">已出餐 0 份</div>
           </div>
 
+          <!-- C Meal Count (素食奶蛋素) -->
+          <div class="bg-teal-50/80 border border-teal-200/80 p-3.5 sm:p-4 rounded-xl">
+            <div class="text-xs text-teal-800 font-bold flex items-center justify-between">
+              <span>C 餐 (素食奶蛋素)</span>
+              <span class="px-1.5 py-0.5 bg-teal-200 text-teal-900 rounded text-[10px]" id="dashCRemaining">待 0</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-bold font-serif text-teal-900 mt-1" id="dashTotalC">0</div>
+            <div class="text-[11px] text-teal-700 mt-0.5" id="dashCServed">已出餐 0 份</div>
+          </div>
+
           <!-- Serving Progress Percentage -->
-          <div class="bg-gray-50 border border-gray-200 p-3.5 sm:p-4 rounded-xl col-span-2 lg:col-span-1 flex flex-col justify-between">
+          <div class="bg-gray-50 border border-gray-200 p-3.5 sm:p-4 rounded-xl col-span-2 sm:col-span-1 lg:col-span-1 flex flex-col justify-between">
             <div class="flex items-center justify-between text-xs font-bold text-gray-700">
               <span>整體上餐進度</span>
               <span id="dashProgressPercent" class="text-trio-jade text-sm font-bold">0%</span>
@@ -641,7 +651,7 @@
             還原「餐點.pdf」預設菜單
           </button>
         </div>
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- A Meal -->
           <div class="p-4 rounded-xl bg-amber-50/50 border border-amber-200 space-y-2">
             <div class="font-bold text-amber-900 text-base">A 餐設定 (主餐 A)</div>
@@ -654,6 +664,13 @@
             <div class="font-bold text-emerald-900 text-base">B 餐設定 (主餐 B)</div>
             <input type="text" id="menuBName" class="w-full text-xs font-bold p-2 bg-white border border-emerald-200 rounded-lg" value="雞肉塔吉與香草飯">
             <textarea id="menuBDesc" rows="7" class="w-full text-xs p-2 bg-white border border-emerald-200 rounded-lg text-gray-700 leading-relaxed"></textarea>
+          </div>
+
+          <!-- C Meal -->
+          <div class="p-4 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2">
+            <div class="font-bold text-teal-900 text-base">C 餐設定 (素食奶蛋素)</div>
+            <input type="text" id="menuCName" class="w-full text-xs font-bold p-2 bg-white border border-teal-200 rounded-lg" value="素食奶蛋素">
+            <textarea id="menuCDesc" rows="7" class="w-full text-xs p-2 bg-white border border-teal-200 rounded-lg text-gray-700 leading-relaxed"></textarea>
           </div>
         </div>
         <div class="mt-4 flex justify-end">

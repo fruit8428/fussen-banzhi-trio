@@ -42,6 +42,12 @@
       name: '雞肉塔吉與香草飯',
       tag: 'B餐',
       desc: '【主菜】雞肉塔吉與香草飯\n【前菜小點1】鯷魚 蒔蘿希臘優格 小黃瓜、酥炸鮭魚皮 夏穆拉醬、醃漬小蕃茄\n【前菜小點2】夏卡蘇卡 中東茄子泥 鷹嘴豆泥 配酸種麵包\n【沙拉】雞胸 藜麥羽衣甘蘭綜合生菜沙拉 ＆ Tahini dressing\n【湯品】摩洛哥地瓜鷹嘴豆濃湯\n【甜點】香蕉麵包 打發奶油與燕麥脆片'
+    },
+    C: {
+      id: 'C',
+      name: '素食奶蛋素',
+      tag: 'C餐',
+      desc: '【主菜】特製主廚精緻蛋奶素蔬食套餐\n【前菜小點】精選蔬食小點與夏卡蘇卡佐酸種麵包\n【沙拉】藜麥羽衣甘蘭綜合生菜沙拉 ＆ Tahini dressing\n【湯品】摩洛哥地瓜鷹嘴豆濃湯 (蛋奶素蔬食)\n【甜點】香蕉麵包 打發奶油與燕麥脆片'
     }
   };
 
@@ -145,18 +151,18 @@
   const Storage = {
     load() {
       try {
-        const CURRENT_VERSION = 'v6_pdf_menu_full_courses_visible_2026_09';
+        const CURRENT_VERSION = 'v7_add_c_meal_vegetarian_2026_09';
         const storedVersion = localStorage.getItem('trio_storage_version');
 
         if (storedVersion !== CURRENT_VERSION) {
-          // 清除舊版本快取，自動載入「報名人數.pdf」最新 20 組名冊與「餐點.pdf」最新 A、B 餐完整菜單 (含沙拉、湯品、甜點)
+          // 升級版本快取，載入含 C 餐 (素食奶蛋素) 最新完整菜單，並保留現有點餐資料
           localStorage.setItem('trio_storage_version', CURRENT_VERSION);
-          localStorage.setItem('trio_members', JSON.stringify(DEFAULT_MEMBERS));
-          localStorage.setItem('trio_menu', JSON.stringify(DEFAULT_MENU));
-          localStorage.removeItem('trio_orders');
-          State.members = JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
+          const localMembers = localStorage.getItem('trio_members');
+          State.members = localMembers ? JSON.parse(localMembers) : JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
+          const localOrders = localStorage.getItem('trio_orders');
+          State.orders = localOrders ? JSON.parse(localOrders) : {};
           State.menu = JSON.parse(JSON.stringify(DEFAULT_MENU));
-          State.orders = {};
+          localStorage.setItem('trio_menu', JSON.stringify(DEFAULT_MENU));
         } else {
           const localMembers = localStorage.getItem('trio_members');
           State.members = localMembers ? JSON.parse(localMembers) : JSON.parse(JSON.stringify(DEFAULT_MEMBERS));
@@ -164,6 +170,10 @@
           State.orders = localOrders ? JSON.parse(localOrders) : {};
           const localMenu = localStorage.getItem('trio_menu');
           State.menu = localMenu ? JSON.parse(localMenu) : JSON.parse(JSON.stringify(DEFAULT_MENU));
+          if (!State.menu.C) {
+            State.menu.C = JSON.parse(JSON.stringify(DEFAULT_MENU.C));
+            localStorage.setItem('trio_menu', JSON.stringify(State.menu));
+          }
         }
 
         const localFb = localStorage.getItem('trio_firebase_config');
@@ -331,6 +341,9 @@
             // 3. 同步菜單資料
             if (payload.menu && typeof payload.menu === 'object') {
               State.menu = payload.menu;
+              if (!State.menu.C) {
+                State.menu.C = JSON.parse(JSON.stringify(DEFAULT_MENU.C));
+              }
               localStorage.setItem('trio_menu', JSON.stringify(State.menu));
             }
 
@@ -923,14 +936,15 @@
 
       const statTotalMeals = document.getElementById('statTotalMeals');
       if (statTotalMeals) {
-        let countA = 0, countB = 0;
+        let countA = 0, countB = 0, countC = 0;
         Object.values(State.orders).forEach(order => {
           (order.meals || []).forEach(m => {
             if (m.type === 'A') countA++;
-            if (m.type === 'B') countB++;
+            else if (m.type === 'B') countB++;
+            else if (m.type === 'C') countC++;
           });
         });
-        statTotalMeals.innerHTML = `${totalMeals} 份 <span class="text-xs font-normal text-gray-500 font-sans">(Ａ:${countA} / Ｂ:${countB})</span>`;
+        statTotalMeals.innerHTML = `${totalMeals} 份 <span class="text-xs font-normal text-gray-500 font-sans">(Ａ:${countA} / Ｂ:${countB} / Ｃ:${countC})</span>`;
       }
     },
 
@@ -981,8 +995,10 @@
         if (hasOrder) {
           const countA = order.meals.filter(m => m.type === 'A').length;
           const countB = order.meals.filter(m => m.type === 'B').length;
+          const countC = order.meals.filter(m => m.type === 'C').length;
           const aShort = State.menu.A ? (State.menu.A.name.split('與')[0] || '香煎鮭魚') : '香煎鮭魚';
           const bShort = State.menu.B ? (State.menu.B.name.split('與')[0] || '雞肉塔吉') : '雞肉塔吉';
+          const cShort = State.menu.C ? (State.menu.C.name || '素食奶蛋素') : '素食奶蛋素';
 
           const badges = [];
           if (countA > 0) {
@@ -1001,6 +1017,14 @@
               </span>
             `);
           }
+          if (countC > 0) {
+            badges.push(`
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-lg text-xs font-bold bg-teal-100 text-teal-950 border border-teal-300 shadow-2xs">
+                <i class="fa-solid fa-leaf text-[11px] text-teal-700"></i>
+                <span>Ｃ餐 (${cShort})${countC > 1 ? ` × ${countC}` : ''}</span>
+              </span>
+            `);
+          }
 
           // Special dietary notes indicator
           const hasCustomNotes = order.meals.some(m => (m.customNote && m.customNote.trim()) || (m.specialNotes && m.specialNotes.length > 0));
@@ -1016,14 +1040,11 @@
           mealBadgesHtml = badges.join('');
 
           // Friendly summary text for the button
-          let summaryStr = '';
-          if (countA > 0 && countB === 0) {
-            summaryStr = countA === 1 ? 'Ａ餐' : `Ａ餐×${countA}`;
-          } else if (countB > 0 && countA === 0) {
-            summaryStr = countB === 1 ? 'Ｂ餐' : `Ｂ餐×${countB}`;
-          } else {
-            summaryStr = `A×${countA} B×${countB}`;
-          }
+          const partsSummary = [];
+          if (countA > 0) partsSummary.push(countA === 1 ? 'Ａ餐' : `A×${countA}`);
+          if (countB > 0) partsSummary.push(countB === 1 ? 'Ｂ餐' : `B×${countB}`);
+          if (countC > 0) partsSummary.push(countC === 1 ? 'Ｃ素' : `C×${countC}`);
+          const summaryStr = partsSummary.join(' ') || `${order.meals.length}份`;
 
           if (allServed) {
             statusBadge = `
@@ -1173,11 +1194,14 @@
       if (order && order.meals && order.meals.length > 0) {
         const countA = order.meals.filter(m => m.type === 'A').length;
         const countB = order.meals.filter(m => m.type === 'B').length;
+        const countC = order.meals.filter(m => m.type === 'C').length;
         const aShort = State.menu.A ? (State.menu.A.name.split('與')[0] || '香煎鮭魚') : '香煎鮭魚';
         const bShort = State.menu.B ? (State.menu.B.name.split('與')[0] || '雞肉塔吉') : '雞肉塔吉';
+        const cShort = State.menu.C ? (State.menu.C.name || '素食奶蛋素') : '素食奶蛋素';
         const parts = [];
         if (countA > 0) parts.push(`Ａ餐 (${aShort}) × ${countA} 份`);
         if (countB > 0) parts.push(`Ｂ餐 (${bShort}) × ${countB} 份`);
+        if (countC > 0) parts.push(`Ｃ餐 (${cShort}) × ${countC} 份`);
         document.getElementById('bannerMemberStatus').innerHTML = `
           該社友目前已點：<strong class="text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300 font-bold">${parts.join('、 ')}</strong>（您可直接在此修改或增減後送出）。
         `;
@@ -1205,6 +1229,7 @@
         const isFirst = index === 0;
         const menuA = State.menu.A;
         const menuB = State.menu.B;
+        const menuC = State.menu.C || DEFAULT_MENU.C;
 
         return `
           <div class="meal-draft-card p-4 sm:p-5 rounded-2xl border-2 ${index === 0 ? 'border-trio-wood/50 bg-amber-50/10' : 'border-gray-200 bg-white'} shadow-xs relative space-y-4">
@@ -1227,15 +1252,15 @@
               </div>
             </div>
 
-            <!-- Meal Type Selection (A / B) -->
+            <!-- Meal Type Selection (A / B / C) -->
             <div>
               <label class="block text-xs font-bold text-gray-700 mb-2">
                 請選擇套餐種類 <span class="text-gray-400 font-normal">(點擊可查看菜色明細)</span>：
               </label>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                 <!-- A Meal Option -->
                 <div data-draft-id="${draft.id}" data-meal-type="A" 
-                     class="meal-option-card p-4 rounded-xl border-2 ${draft.type === 'A' ? 'selected' : 'border-gray-200 bg-white'} flex flex-col justify-between cursor-pointer">
+                     class="meal-option-card p-3.5 sm:p-4 rounded-xl border-2 ${draft.type === 'A' ? 'selected' : 'border-gray-200 bg-white'} flex flex-col justify-between cursor-pointer">
                   <div>
                     <div class="flex items-center justify-between mb-1.5">
                       <span class="font-bold text-sm text-amber-900">${menuA.tag}</span>
@@ -1244,13 +1269,13 @@
                       </span>
                     </div>
                     <div class="font-bold text-base text-trio-forest font-serif">${menuA.name}</div>
-                    <div class="text-xs sm:text-[13px] text-gray-700 mt-2 whitespace-pre-line leading-relaxed">${menuA.desc}</div>
+                    <div class="text-xs text-gray-700 mt-2 whitespace-pre-line leading-relaxed">${menuA.desc}</div>
                   </div>
                 </div>
 
                 <!-- B Meal Option -->
                 <div data-draft-id="${draft.id}" data-meal-type="B" 
-                     class="meal-option-card p-4 rounded-xl border-2 ${draft.type === 'B' ? 'selected' : 'border-gray-200 bg-white'} flex flex-col justify-between cursor-pointer">
+                     class="meal-option-card p-3.5 sm:p-4 rounded-xl border-2 ${draft.type === 'B' ? 'selected' : 'border-gray-200 bg-white'} flex flex-col justify-between cursor-pointer">
                   <div>
                     <div class="flex items-center justify-between mb-1.5">
                       <span class="font-bold text-sm text-emerald-900">${menuB.tag}</span>
@@ -1259,7 +1284,22 @@
                       </span>
                     </div>
                     <div class="font-bold text-base text-trio-forest font-serif">${menuB.name}</div>
-                    <div class="text-xs sm:text-[13px] text-gray-700 mt-2 whitespace-pre-line leading-relaxed">${menuB.desc}</div>
+                    <div class="text-xs text-gray-700 mt-2 whitespace-pre-line leading-relaxed">${menuB.desc}</div>
+                  </div>
+                </div>
+
+                <!-- C Meal Option (素食奶蛋素) -->
+                <div data-draft-id="${draft.id}" data-meal-type="C" 
+                     class="meal-option-card p-3.5 sm:p-4 rounded-xl border-2 ${draft.type === 'C' ? 'selected' : 'border-gray-200 bg-white'} flex flex-col justify-between cursor-pointer">
+                  <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="font-bold text-sm text-teal-900">${menuC.tag} (素食奶蛋素)</span>
+                      <span class="w-4 h-4 rounded-full border-2 flex items-center justify-center ${draft.type === 'C' ? 'border-trio-forest bg-trio-forest' : 'border-gray-300'}">
+                        ${draft.type === 'C' ? '<span class="w-1.5 h-1.5 rounded-full bg-white"></span>' : ''}
+                      </span>
+                    </div>
+                    <div class="font-bold text-base text-trio-forest font-serif">${menuC.name}</div>
+                    <div class="text-xs text-gray-700 mt-2 whitespace-pre-line leading-relaxed">${menuC.desc}</div>
                   </div>
                 </div>
               </div>
@@ -1350,10 +1390,12 @@
       // Summary of meal types
       const countA = State.currentMealDrafts.filter(d => d.type === 'A').length;
       const countB = State.currentMealDrafts.filter(d => d.type === 'B').length;
+      const countC = State.currentMealDrafts.filter(d => d.type === 'C').length;
 
       const summaryParts = [];
       if (countA > 0) summaryParts.push(`A餐 x ${countA}`);
       if (countB > 0) summaryParts.push(`B餐 x ${countB}`);
+      if (countC > 0) summaryParts.push(`C餐(素食) x ${countC}`);
 
       const totalMeals = State.currentMealDrafts.length;
       document.getElementById('submitBarMealSummary').innerText = `共 ${totalMeals} 份餐點：${summaryParts.join('、 ')}`;
@@ -1365,6 +1407,7 @@
       let totalServed = 0;
       let totalA = 0, servedA = 0;
       let totalB = 0, servedB = 0;
+      let totalC = 0, servedC = 0;
       const specialDiets = []; // { note, memberName, mealType, guestLabel }
 
       Object.values(State.orders).forEach(order => {
@@ -1379,6 +1422,9 @@
           } else if (meal.type === 'B') {
             totalB++;
             if (meal.served) servedB++;
+          } else if (meal.type === 'C') {
+            totalC++;
+            if (meal.served) servedC++;
           }
 
           // Check dietary notes
@@ -1420,6 +1466,14 @@
       if (dashBRemaining) dashBRemaining.innerText = `待 ${totalB - servedB}`;
       const dashBServed = document.getElementById('dashBServed');
       if (dashBServed) dashBServed.innerText = `已出餐 ${servedB} 份`;
+
+      // C Meal (素食奶蛋素)
+      const dashTotalC = document.getElementById('dashTotalC');
+      if (dashTotalC) dashTotalC.innerText = totalC;
+      const dashCRemaining = document.getElementById('dashCRemaining');
+      if (dashCRemaining) dashCRemaining.innerText = `待 ${totalC - servedC}`;
+      const dashCServed = document.getElementById('dashCServed');
+      if (dashCServed) dashCServed.innerText = `已出餐 ${servedC} 份`;
 
       // Progress bar
       const progressPercent = totalMeals > 0 ? Math.round((totalServed / totalMeals) * 100) : 0;
@@ -1758,11 +1812,15 @@
       const menuADesc = document.getElementById('menuADesc');
       const menuBName = document.getElementById('menuBName');
       const menuBDesc = document.getElementById('menuBDesc');
+      const menuCName = document.getElementById('menuCName');
+      const menuCDesc = document.getElementById('menuCDesc');
 
       if (menuAName && State.menu.A) menuAName.value = State.menu.A.name;
       if (menuADesc && State.menu.A) menuADesc.value = State.menu.A.desc;
       if (menuBName && State.menu.B) menuBName.value = State.menu.B.name;
       if (menuBDesc && State.menu.B) menuBDesc.value = State.menu.B.desc;
+      if (menuCName && State.menu.C) menuCName.value = State.menu.C.name;
+      if (menuCDesc && State.menu.C) menuCDesc.value = State.menu.C.desc;
 
       const fbInput = document.getElementById('firebaseConfigInput');
       if (fbInput && State.firebaseConfig) {
@@ -2053,10 +2111,17 @@
       const btnSaveMenu = document.getElementById('btnSaveMenuSettings');
       if (btnSaveMenu) {
         btnSaveMenu.addEventListener('click', () => {
-          State.menu.A.name = document.getElementById('menuAName').value.trim();
-          State.menu.A.desc = document.getElementById('menuADesc').value.trim();
-          State.menu.B.name = document.getElementById('menuBName').value.trim();
-          State.menu.B.desc = document.getElementById('menuBDesc').value.trim();
+          if (!State.menu.A) State.menu.A = { id: 'A', tag: 'A餐' };
+          if (!State.menu.B) State.menu.B = { id: 'B', tag: 'B餐' };
+          if (!State.menu.C) State.menu.C = { id: 'C', tag: 'C餐' };
+
+          if (document.getElementById('menuAName')) State.menu.A.name = document.getElementById('menuAName').value.trim();
+          if (document.getElementById('menuADesc')) State.menu.A.desc = document.getElementById('menuADesc').value.trim();
+          if (document.getElementById('menuBName')) State.menu.B.name = document.getElementById('menuBName').value.trim();
+          if (document.getElementById('menuBDesc')) State.menu.B.desc = document.getElementById('menuBDesc').value.trim();
+          if (document.getElementById('menuCName')) State.menu.C.name = document.getElementById('menuCName').value.trim();
+          if (document.getElementById('menuCDesc')) State.menu.C.desc = document.getElementById('menuCDesc').value.trim();
+
           Storage.saveMenu();
           UI.showToast('菜單設定已成功儲存！', 'success');
           UI.renderAll();
@@ -2424,12 +2489,13 @@
       if (!container) return;
 
       const orderList = Object.values(State.orders);
-      let totalMeals = 0, countA = 0, countB = 0;
+      let totalMeals = 0, countA = 0, countB = 0, countC = 0;
       orderList.forEach(ord => {
         (ord.meals || []).forEach(m => {
           totalMeals++;
           if (m.type === 'A') countA++;
-          if (m.type === 'B') countB++;
+          else if (m.type === 'B') countB++;
+          else if (m.type === 'C') countC++;
         });
       });
 
@@ -2466,6 +2532,7 @@
             <div>總餐數：${totalMeals} 份</div>
             <div>A 餐 (${State.menu.A ? State.menu.A.name : '香煎鮭魚'})：${countA} 份</div>
             <div>B 餐 (${State.menu.B ? State.menu.B.name : '雞肉塔吉'})：${countB} 份</div>
+            <div>C 餐 (${State.menu.C ? State.menu.C.name : '素食奶蛋素'})：${countC} 份</div>
           </div>
 
           <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
