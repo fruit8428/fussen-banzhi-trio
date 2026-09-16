@@ -1202,22 +1202,64 @@
       }
 
       const order = State.orders[member.id];
-      if (order && order.meals && order.meals.length > 0) {
-        const countA = order.meals.filter(m => m.type === 'A').length;
-        const countB = order.meals.filter(m => m.type === 'B').length;
-        const countC = order.meals.filter(m => m.type === 'C').length;
-        const aShort = State.menu.A ? (State.menu.A.name.split('與')[0] || '香煎鮭魚') : '香煎鮭魚';
-        const bShort = State.menu.B ? (State.menu.B.name.split('與')[0] || '雞肉塔吉') : '雞肉塔吉';
-        const cShort = State.menu.C ? (State.menu.C.name || '素食奶蛋素') : '素食奶蛋素';
-        const parts = [];
-        if (countA > 0) parts.push(`Ａ餐 (${aShort}) × ${countA} 份`);
-        if (countB > 0) parts.push(`Ｂ餐 (${bShort}) × ${countB} 份`);
-        if (countC > 0) parts.push(`Ｃ餐 (${cShort}) × ${countC} 份`);
-        document.getElementById('bannerMemberStatus').innerHTML = `
-          該社友目前已點：<strong class="text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300 font-bold">${parts.join('、 ')}</strong>（您可直接在此修改或增減後送出）。
-        `;
-      } else {
-        document.getElementById('bannerMemberStatus').innerText = '正在為該社友建立全新點餐資訊。';
+      const statusEl = document.getElementById('bannerMemberStatus');
+      if (statusEl) {
+        if (order && order.meals && order.meals.length > 0) {
+          const countA = order.meals.filter(m => m.type === 'A').length;
+          const countB = order.meals.filter(m => m.type === 'B').length;
+          const countC = order.meals.filter(m => m.type === 'C').length;
+          const aShort = State.menu.A ? (State.menu.A.name.split('與')[0] || '香煎鮭魚') : '香煎鮭魚';
+          const bShort = State.menu.B ? (State.menu.B.name.split('與')[0] || '雞肉塔吉') : '雞肉塔吉';
+          const cShort = State.menu.C ? (State.menu.C.name || '素食奶蛋素') : '素食奶蛋素';
+          
+          const badges = [];
+          if (countA > 0) {
+            badges.push(`
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/25 border border-amber-300/40 text-amber-100 text-xs font-semibold shadow-2xs">
+                <span>🐟 Ａ餐 (${aShort})</span>
+                <span class="bg-amber-400/30 px-1.5 py-0.5 rounded text-white font-bold text-xs">× ${countA}</span>
+              </span>
+            `);
+          }
+          if (countB > 0) {
+            badges.push(`
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/25 border border-emerald-300/40 text-emerald-100 text-xs font-semibold shadow-2xs">
+                <span>🍗 Ｂ餐 (${bShort})</span>
+                <span class="bg-emerald-400/30 px-1.5 py-0.5 rounded text-white font-bold text-xs">× ${countB}</span>
+              </span>
+            `);
+          }
+          if (countC > 0) {
+            badges.push(`
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/25 border border-teal-300/40 text-teal-100 text-xs font-semibold shadow-2xs">
+                <span>🥗 Ｃ餐 (${cShort})</span>
+                <span class="bg-teal-400/30 px-1.5 py-0.5 rounded text-white font-bold text-xs">× ${countC}</span>
+              </span>
+            `);
+          }
+
+          statusEl.innerHTML = `
+            <div class="rounded-xl bg-black/30 border border-white/20 p-2.5 sm:p-3 space-y-2 backdrop-blur-xs">
+              <div class="flex items-center justify-between flex-wrap gap-1 text-xs">
+                <div class="flex items-center gap-1.5 text-amber-300 font-bold">
+                  <i class="fa-solid fa-circle-check text-xs"></i>
+                  <span>目前已點紀錄（共 ${order.meals.length} 份餐點）</span>
+                </div>
+                <span class="text-[11px] text-gray-300">下方表單可直接修改、增減後送出</span>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                ${badges.join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          statusEl.innerHTML = `
+            <div class="rounded-xl bg-black/25 border border-white/15 p-2.5 sm:p-3 flex items-center gap-2 text-xs text-trio-sand/90 backdrop-blur-xs">
+              <i class="fa-solid fa-pen-to-square text-amber-300 text-sm shrink-0"></i>
+              <span>該社友尚未點餐，請在下方挑選主餐與特殊飲食需求備註。</span>
+            </div>
+          `;
+        }
       }
     },
 

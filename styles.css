@@ -109,8 +109,8 @@ body.big-font-mode .note-badge {
 }
 .meal-option-card.selected {
   border-color: #1b382b;
-  background: #fdfbf7;
-  box-shadow: 0 0 0 2px #1b382b;
+  background-color: #f8f5ee;
+  box-shadow: 0 0 0 2px #1b382b, 0 4px 12px rgba(27, 56, 43, 0.08);
 }
 
 /* Special Diet Quick Tag Pills */
