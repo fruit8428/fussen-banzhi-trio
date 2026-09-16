@@ -1048,14 +1048,14 @@
 
           if (allServed) {
             statusBadge = `
-              <div class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl border border-emerald-300/80 shrink-0 flex items-center gap-1.5 transition shadow-2xs cursor-pointer" title="點擊檢視或修改餐點">
+              <div class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300/80 shrink-0 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap" title="點擊檢視或修改餐點">
                 <span>🟢 已全上 (${summaryStr})</span>
                 <i class="fa-solid fa-pen-to-square text-[10px] opacity-70"></i>
               </div>
             `;
           } else {
             statusBadge = `
-              <div class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-3 py-1.5 rounded-xl border border-amber-300/80 shrink-0 flex items-center gap-1.5 transition shadow-2xs cursor-pointer" title="點擊檢視或修改餐點">
+              <div class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-300/80 shrink-0 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap" title="點擊檢視或修改餐點">
                 <span>🟡 已點：${summaryStr}</span>
                 <i class="fa-solid fa-pen-to-square text-[10px] opacity-70"></i>
               </div>
@@ -1063,7 +1063,7 @@
           }
         } else {
           statusBadge = `
-            <div class="text-xs bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-xs shrink-0 flex items-center gap-1.5 transition cursor-pointer">
+            <div class="text-xs bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-3 sm:px-3.5 py-1.5 rounded-xl shadow-xs shrink-0 flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap">
               <i class="fa-solid fa-utensils text-[11px]"></i>
               <span>未點餐・點此進入</span>
               <i class="fa-solid fa-arrow-right text-[10px] opacity-80"></i>
@@ -1095,39 +1095,50 @@
         return `
           <div role="button" tabindex="0" data-member-id="${member.id}"
                class="member-chip w-full text-left p-3 sm:p-3.5 rounded-xl border-2 ${hasOrder ? 'has-order bg-emerald-50/20 border-emerald-200/80' : 'bg-white border-gray-200'} 
-                      ${isSelected ? 'selected' : 'hover:border-trio-wood hover:bg-gray-50/80'} flex items-center justify-between gap-3 transition-all cursor-pointer">
-            <!-- Left info: Sequence No., Role, Name, Headcount & A/B Meal Badges -->
-            <div class="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0 flex-1">
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${isSelected ? 'bg-trio-woodLight text-trio-dark' : 'bg-gray-100 text-gray-600'}">
-                ${String(originalIndex).padStart(2, '0')}
-              </span>
-              <span class="role-badge text-xs px-2 py-0.5 rounded-md font-bold shrink-0 ${isSelected ? 'bg-trio-wood text-white' : 'bg-trio-forest/10 text-trio-forest'}">
-                ${member.role}
-              </span>
-              <span class="font-serif font-bold text-base sm:text-lg tracking-wide shrink-0 ${isSelected ? 'text-white' : 'text-trio-forest'}">
-                ${member.name}
-              </span>
-              <!-- 攜帶人數欄位：直接放置在社友名稱正旁邊 (含增加與減少按鈕) -->
-              ${guestBadge}
-
-              <!-- 已點餐餐點 A/B 提示標籤 (一眼看出點Ａ餐或Ｂ餐) -->
-              ${hasOrder ? `
-                <div class="inline-flex items-center gap-1.5 flex-wrap">
-                  ${mealBadgesHtml}
+                      ${isSelected ? 'selected' : 'hover:border-trio-wood hover:bg-gray-50/80'} transition-all cursor-pointer">
+            <!-- Responsive Container: Mobile stacks cleanly into rows, Desktop stays horizontal -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+              <!-- Top line on mobile: Sequence, Role, Name, and Headcount Stepper -->
+              <div class="flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 min-w-0 flex-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${isSelected ? 'bg-trio-woodLight text-trio-dark' : 'bg-gray-100 text-gray-600'}">
+                    ${String(originalIndex).padStart(2, '0')}
+                  </span>
+                  <span class="role-badge text-xs px-2 py-0.5 rounded-md font-bold shrink-0 ${isSelected ? 'bg-trio-wood text-white' : 'bg-trio-forest/10 text-trio-forest'}">
+                    ${member.role}
+                  </span>
+                  <span class="font-serif font-bold text-base sm:text-lg tracking-wide shrink-0 ${isSelected ? 'text-white' : 'text-trio-forest'}">
+                    ${member.name}
+                  </span>
                 </div>
-              ` : ''}
-            </div>
 
-            <!-- Right info: Order Status, Selection Arrow/Check -->
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div class="status-badge-wrapper">
-                ${statusBadge}
+                <!-- 攜帶人數欄位 (含增加與減少按鈕) -->
+                <div class="shrink-0">
+                  ${guestBadge}
+                </div>
               </div>
-              <div class="w-6 text-center text-sm shrink-0">
-                ${isSelected 
-                  ? '<i class="fa-solid fa-circle-check text-trio-woodLight text-base"></i>' 
-                  : '<i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>'
-                }
+
+              <!-- Bottom line on mobile: Meal Badges (A/B/C) & Status Action Button (已點 / 未點餐) -->
+              <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 flex-wrap sm:flex-nowrap ${hasOrder ? (isSelected ? 'border-t border-white/20 pt-2 sm:border-t-0 sm:pt-0' : 'border-t border-gray-100 pt-2 sm:border-t-0 sm:pt-0') : ''}">
+                <!-- 已點餐餐點 A/B/C 提示標籤 (一眼看出點Ａ餐或Ｂ餐) -->
+                ${hasOrder ? `
+                  <div class="inline-flex items-center gap-1.5 flex-wrap min-w-0">
+                    ${mealBadgesHtml}
+                  </div>
+                ` : ''}
+
+                <!-- 右側狀態按鈕 (已點 / 未點餐) 與箭頭 -->
+                <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+                  <div class="status-badge-wrapper whitespace-nowrap">
+                    ${statusBadge}
+                  </div>
+                  <div class="w-5 sm:w-6 text-center text-sm shrink-0">
+                    ${isSelected 
+                      ? '<i class="fa-solid fa-circle-check text-trio-woodLight text-base"></i>' 
+                      : '<i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>'
+                    }
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -145,12 +145,12 @@
               免桌號／認人不上桌。已匯入「報名人數.pdf」共 20 組名冊（預計 34 位賓客）。點選「未點餐」直接切換進入點餐畫面。
             </p>
           </div>
-          <div class="flex items-center gap-3">
-            <div class="bg-trio-cream px-3.5 py-2 rounded-xl border border-trio-sand text-center min-w-[100px]">
+          <div class="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 w-full md:w-auto">
+            <div class="bg-trio-cream px-3 py-2 rounded-xl border border-trio-sand text-center min-w-[90px] sm:min-w-[100px]">
               <div class="text-xs text-gray-500 font-medium">已點餐組數</div>
               <div class="text-lg sm:text-xl font-bold text-trio-forest font-serif" id="statOrderedMembers">0 / 20 組</div>
             </div>
-            <div class="bg-trio-cream px-3.5 py-2 rounded-xl border border-trio-sand text-center min-w-[100px]">
+            <div class="bg-trio-cream px-3 py-2 rounded-xl border border-trio-sand text-center min-w-[90px] sm:min-w-[100px]">
               <div class="text-xs text-gray-500 font-medium">已累計餐點總數</div>
               <div class="text-lg sm:text-xl font-bold text-trio-wood font-serif" id="statTotalMeals">0 份</div>
             </div>
@@ -160,30 +160,32 @@
         <!-- Step A: 社友名單快選模組 -->
         <div id="stepAContainer" class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-trio-sand/50">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-            <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-full bg-trio-wood text-white flex items-center justify-center text-xs font-bold">A</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="w-6 h-6 rounded-full bg-trio-wood text-white flex items-center justify-center text-xs font-bold shrink-0">A</span>
               <h3 class="text-lg font-bold text-trio-forest">步驟一：快選社友姓名</h3>
               <span class="text-xs text-gray-500">(點擊「未點餐」立即切換進入點餐)</span>
             </div>
 
             <!-- Filters & Search -->
-            <div class="flex items-center gap-2 flex-wrap">
-              <div class="relative flex-1 sm:w-60">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+              <div class="relative w-full sm:w-56">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                 <input type="text" id="memberSearchInput" placeholder="搜尋社友姓名或職稱..." 
-                       class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-trio-wood focus:bg-white transition">
+                       class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-trio-wood focus:bg-white transition">
               </div>
               
-              <div class="flex rounded-xl bg-gray-100 p-1 text-xs font-medium">
-                <button id="filterAllMembers" class="member-filter-btn px-2.5 py-1.5 rounded-lg active bg-white shadow-xs font-bold text-trio-forest">全部</button>
-                <button id="filterUnordered" class="member-filter-btn px-2.5 py-1.5 rounded-lg text-gray-600 hover:text-gray-900">未點餐 (醒目)</button>
-                <button id="filterOrdered" class="member-filter-btn px-2.5 py-1.5 rounded-lg text-gray-600 hover:text-gray-900">已點餐</button>
-              </div>
+              <div class="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+                <div class="flex rounded-xl bg-gray-100 p-1 text-xs font-medium shrink-0">
+                  <button id="filterAllMembers" class="member-filter-btn px-2.5 py-1.5 rounded-lg active bg-white shadow-xs font-bold text-trio-forest">全部</button>
+                  <button id="filterUnordered" class="member-filter-btn px-2.5 py-1.5 rounded-lg text-gray-600 hover:text-gray-900">未點餐</button>
+                  <button id="filterOrdered" class="member-filter-btn px-2.5 py-1.5 rounded-lg text-gray-600 hover:text-gray-900">已點餐</button>
+                </div>
 
-              <button id="btnQuickAddGuest" class="px-3 py-2 bg-trio-creamDark hover:bg-trio-sand text-trio-forest font-bold rounded-xl text-xs transition flex items-center gap-1 border border-trio-sand">
-                <i class="fa-solid fa-user-plus"></i>
-                <span>臨時來賓</span>
-              </button>
+                <button id="btnQuickAddGuest" class="px-3 py-1.5 bg-trio-creamDark hover:bg-trio-sand text-trio-forest font-bold rounded-xl text-xs transition flex items-center gap-1 border border-trio-sand shrink-0">
+                  <i class="fa-solid fa-user-plus text-[11px]"></i>
+                  <span>臨時來賓</span>
+                </button>
+              </div>
             </div>
           </div>
 
